@@ -1,0 +1,113 @@
+pnpx create-mf-app (you can use npx too)
+
+App 1:
+name = home
+port 4000
+
+App 2:
+name = pdp (product details page)
+port 4001
+
+Create a few components inside home app, that need to be used by other applications.
+
+Now go to webpack.config.js file in home application and add this in the ModuleFederationPlugin:
+
+      exposes: {
+        "./Header": "./src/Header.jsx",
+        "./Footer": "./src/Footer.jsx",
+      },
+
+remoteEntry.js file is a manifest of all of the modules that are exposed by the homepage application.
+
+So we'll copy the link, i.e.
+http://localhost:4000/remoteEntry.js
+
+Now go to webpack.config.js file in pdp application and add this in the ModuleFederationPlugin:
+
+      remotes: {
+        home: "home@http://localhost:4000/remoteEntry.js"
+      },
+
+* The name 'home' before @ is the same name as in the webpack.config.js of homepage application. (This name should be a valid JS variable name so home_page is acceptable but home-page is not)
+
+Now simply import the files like this:
+
+import Header from "home/Header"
+import Footer from "home/Footer"
+
+Now, you can make any changes in that component and it would reflect instantly without any need to restart the server or something, you just need to hit the refresh button in the browser to view the changes. Awesome!!
+
+The reason why big compnaies are interested in micro-FEs is the same as the reason as micro-services when it comes to the backend. Each team can deploy and release seperately.
+
+Also, one of the major benefits could be seen by having a look at the Network tab when the button is clicked that conditionally renders the shared Header component. 
+Note that we had our Header component lazy loaded and wrapped into Suspense.
+Now when the button is clicked it then imports the component, and that is just 1.1 kbs. This is due to another configuration in webpack.config.js which is "shared" object where all the dependencies are shared alongside react and react-dom but they are shared in singleton mode which means that there can only be one instance of a react and not two different versions running at the same webpage which might cause issues.
+
+Now, this brings just the code for the Header component that was shared and any dependencies (if used) inside those components.
+This was just to show that it brings just the component code.
+
+The way that you deploy Module Federation is that you build and deploy it to a static asset store like s3, because you want to get that CDN style caching and that that kind of goodness.
+
+Now run: yarn build
+
+cd ./dist
+
+PORT=4000 npx servor
+OR
+servor -p 4000
+
+Now this build only contains all the static files and servor imitates a static asset store. Servor doesn't know anything other than just "serve" these static files so it's just like s3 in that case.
+
+So as long as S3 and your static asset store don't go down, then you're not gonna have an issue when it comes to your code not being there.
+
+But the problem you should actually be worried about, is that someone in the homepage team changed the API contract (props etc) and made it work in homepage app but did not tell the PDP app team of this change of contract.
+
+In order to avoid the PDP app blow up (crash) due to inavailability of prop we need to set up error boundaries.
+
+So create a SafeComponent.jsx and wrap your components in it.
+
+Now let's create a server app
+
+npx create-mf-app
+
+This time select API server
+name: server
+port: whatever, commonly used 8080 (I used 8081)
+nest-auth
+
+yarn start
+
+Now you can go to localhost:8081/fidget-1.jpg and just to check (the server works!)
+
+localhost:8081/unauthorized returns true (check in browser)
+
+Now we need to change that module from unauthorized to products
+
+So we'll change all instances of file and folder names and now let's check (by hitting the API in the browser) if it returns true
+
+Now let's create a products.ts file in src/ and write a Product interface and an array of products
+(share on zoom as well as airforshare, during the session)
+
+Now in products.controller.ts import product and then add these 2 methods:
+
+  @Get()
+  async index(): Promise<Product[]> {
+    return products;
+  }
+
+  @Get(':id')
+  async show(@Param('id') id: string): Promise<Product> {
+    return products.find((products) => products.id === parseInt(id));
+  }
+
+
+
+
+
+
+
+
+
+
+
+
